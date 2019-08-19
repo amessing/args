@@ -936,6 +936,25 @@ TEST_CASE("Subparser validation works as expected", "[args]")
     REQUIRE_THROWS_AS(p.ParseArgs(std::vector<std::string>{"unknown-command"}), args::ParseError);
 }
 
+TEST_CASE("Subparser group validation works as expected", "[args]")
+{
+    int x = 0;
+    args::ArgumentParser p("parser");
+    args::Command a(p, "a", "command a", [&](args::Subparser &s)
+    {
+        args::Group required(s, "", args::Group::Validators::All);
+        args::ValueFlag<std::string> f(required, "", "", {'f'});
+        s.Parse();
+        ++x;
+    });
+
+    p.RequireCommand(false);
+    REQUIRE_NOTHROW(p.ParseArgs(std::vector<std::string>{}));
+    REQUIRE_NOTHROW(p.ParseArgs(std::vector<std::string>{"a", "-f", "F"}));
+    REQUIRE_THROWS_AS(p.ParseArgs(std::vector<std::string>{"a"}), args::ValidationError);
+    REQUIRE(x == 1);
+}
+
 TEST_CASE("Global options work as expected", "[args]")
 {
     args::Group globals;
@@ -1173,6 +1192,8 @@ TEST_CASE("ValueParser works as expected", "[args]")
     args::ValueFlag<std::string> f(p, "name", "description", {'f'});
     args::ValueFlag<StringAssignable> b(p, "name", "description", {'b'});
     args::ValueFlag<int> i(p, "name", "description", {'i'});
+    args::ValueFlag<int> d(p, "name", "description", {'d'});
+    args::PositionalList<double> ds(p, "name", "description");
 
     REQUIRE_NOTHROW(p.ParseArgs(std::vector<std::string>{"-f", "a b"}));
     REQUIRE(args::get(f) == "a b");
@@ -1185,6 +1206,11 @@ TEST_CASE("ValueParser works as expected", "[args]")
 
     REQUIRE_NOTHROW(p.ParseArgs(std::vector<std::string>{"-i", " 12"}));
     REQUIRE(args::get(i) == 12);
+
+    REQUIRE_THROWS_AS(p.ParseArgs(std::vector<std::string>{"-i", "a"}), args::ParseError);
+    REQUIRE_THROWS_AS(p.ParseArgs(std::vector<std::string>{"-d", "b"}), args::ParseError);
+    REQUIRE_THROWS_AS(p.ParseArgs(std::vector<std::string>{"c"}), args::ParseError);
+    REQUIRE_THROWS_AS(p.ParseArgs(std::vector<std::string>{"s"}), args::ParseError);
 }
 
 TEST_CASE("ActionFlag works as expected", "[args]")
